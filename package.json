@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "run-dev": "npx nodemon index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix --color",
     "prepare": "husky install"
@@ -30,6 +31,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "husky": "^8.0.1",
     "lint-staged": "^13.0.0",
+    "nodemon": "^2.0.16",
     "prettier": "^2.6.2"
   },
   "lint-staged": {

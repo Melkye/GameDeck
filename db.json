@@ -20,5 +20,27 @@
             "title": "updated game title",
             "desc": "updated desc"
         }
+    ],
+    "users": [
+        {
+            "id": 1,
+            "name": "abuba",
+            "email": "abuba@abubamail.com"
+        },
+        {
+            "id": 2,
+            "name": "sponge",
+            "email": "sponge@spongemail.com"
+        },
+        {
+            "id": 3,
+            "name": "mario",
+            "email": "mario@mariomail.com"
+        },
+        {
+            "id": 4,
+            "name": "Serhiy Kyslytsya",
+            "email": "representativeUN@ukr.net"
+        }
     ]
 }

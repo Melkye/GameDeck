@@ -2,98 +2,86 @@ const fs = require("fs");
 
 const db = require("../db.json");
 
-// exports.getAllGames = async (req, res, next) => {
+function saveDbChanges() {
+  fs.writeFile("db.json", JSON.stringify(db, null, 4), (error) => {
+    if (error) throw error;
+  });
+}
+
 exports.getAllGames = (req, res, next) => {
-  // need next here and further?
   try {
     res.send(db.games);
   } catch (error) {
-    console.log(error);
-    next(error); // wtf?
+    res.send(error.message);
+    console.error(error);
+    next();
   }
 };
 
 exports.getGameById = (req, res, next) => {
   try {
-    const game = db.games.find(g => g.id === parseInt(req.params.id, 10)); // remove array and indexing // done?
+    const game = db.games.find((g) => g.id === parseInt(req.params.id, 10));
     if (!game) {
-      res.sendStatus(404);
+      res.status(404).send("A game with specified id is not found");
     } else {
       res.send(game);
     }
   } catch (error) {
-    console.log(error);
-    next(error); // wtf?
+    res.send(error.message);
+    console.error(error);
+    next();
   }
 };
 
 exports.createGame = (req, res, next) => {
   try {
-    const newId = db.games.length;
     const newGame = {
-      id: db.games.length + 1,
+      id: db.games[db.games.length - 1].id + 1,
       title: req.body.title,
       desc: req.body.desc,
     };
-    // res.send(req.body); /// ////
     db.games.push(newGame);
-    res.send(db.games); // or this?
-
-    fs.writeFile("db.json", JSON.stringify(db, null, 4), err => {
-      if (err) {
-        throw err;
-      }
-      console.log("JSON data is saved.");
-    });
+    saveDbChanges();
+    res.send(db.games);
   } catch (error) {
-    console.log(error);
-    next(error);
+    res.send(error.message);
+    console.error(error);
+    next();
   }
 };
 
 exports.updateGame = (req, res, next) => {
   try {
-    const game = db.games.find(g => g.id === parseInt(req.params.id, 10));
+    const game = db.games.find((g) => g.id === parseInt(req.params.id, 10));
     if (!game) {
-      res.sendStatus(404); // works?
+      res.status(404).send("A game with specified id is not found");
     } else {
       const gameIndex = db.games.indexOf(game);
       db.games[gameIndex].title = req.body.title;
       db.games[gameIndex].desc = req.body.desc;
-
-      fs.writeFile("db.json", JSON.stringify(db, null, 4), err => {
-        if (err) {
-          throw err;
-        }
-        console.log("JSON data is saved.");
-      });
+      saveDbChanges();
       res.send(db.games);
     }
   } catch (error) {
-    console.log(error);
-    next(error);
+    res.send(error.message);
+    console.error(error);
+    next();
   }
 };
 
 exports.deleteGame = (req, res, next) => {
   try {
-    // const { id } = req.params;
-    const game = db.games.find(g => g.id === parseInt(req.params.id, 10)); // remove array and indexing // what if array is empty
+    const game = db.games.find((g) => g.id === parseInt(req.params.id, 10));
     if (!game) {
-      res.sendStatus(404);
+      res.status(404).send("A game with specified id is not found");
     } else {
       const gameIndex = db.games.indexOf(game);
       db.games.splice(gameIndex, 1);
-      fs.writeFile("db.json", JSON.stringify(db, null, 4), err => {
-        if (err) {
-          throw err;
-        }
-        console.log("JSON data is saved.");
-      });
-      res.send(db.games); // "deletion successful");
+      res.send(db.games);
     }
   } catch (error) {
-    console.log(error);
-    next(error); // wtf?
+    res.send(error.message);
+    console.error(error);
+    next();
   }
 };

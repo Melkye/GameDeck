@@ -7,6 +7,7 @@ router.get("/", GameController.getAllGames);
 router.get("/:id", GameController.getGameById);
 
 router.post("/", GameController.createGame);
+router.post("/add-rand", GameController.createGameFromGB);
 
 router.put("/:id", GameController.updateGame);
 

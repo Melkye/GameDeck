@@ -1,9 +1,10 @@
 {
-    "printWidth": 100,
+	"printWidth": 100,
 	"semi": true,
 	"singleQuote": false,
 	"trailingComma": "all",
 	"bracketSpacing": true,
-	"arrowParens": "avoid",
-	"proseWrap": "always"
+	"arrowParens": "always",
+	"proseWrap": "always",
+	"endOfLine": "crlf"
 }

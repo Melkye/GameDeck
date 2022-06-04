@@ -1,40 +1,44 @@
 {
-  "name": "gamedeck",
-  "version": "1.0.0",
-  "description": "GameDeck is an online resource which allows users to recieve news about their favorite games\r and get updates about new game releases",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "run-dev": "npx nodemon index.js",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix --color",
-    "prepare": "husky install"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Melkye/GameDeck.git"
-  },
-  "keywords": [],
-  "author": "Denys Adamov",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/Melkye/GameDeck/issues"
-  },
-  "homepage": "https://github.com/Melkye/GameDeck#readme",
-  "dependencies": {
-    "express": "^4.18.1"
-  },
-  "devDependencies": {
-    "eslint": "^8.16.0",
-    "eslint-config-airbnb": "^19.0.4",
-    "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-prettier": "^4.0.0",
-    "husky": "^8.0.1",
-    "lint-staged": "^13.0.0",
-    "nodemon": "^2.0.16",
-    "prettier": "^2.6.2"
-  },
-  "lint-staged": {
-    "*.js": "eslint --cache --fix"
-  }
+    "name": "gamedeck",
+    "version": "1.0.0",
+    "description": "GameDeck is an online resource which allows users to recieve news about their favorite games\r and get updates about new game releases",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "run-dev": "npx nodemon index.js",
+        "lint": "eslint . --color",
+        "lint:fix": "eslint . --fix --color",
+        "format": "prettier . --check ",
+        "format:fix": "prettier . --write",
+        "prepare": "husky install"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Melkye/GameDeck.git"
+    },
+    "keywords": [],
+    "author": "Denys Adamov",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/Melkye/GameDeck/issues"
+    },
+    "homepage": "https://github.com/Melkye/GameDeck#readme",
+    "dependencies": {
+        "express": "^4.18.1"
+    },
+    "devDependencies": {
+        "eslint": "^8.16.0",
+        "eslint-config-airbnb": "^19.0.4",
+        "eslint-config-prettier": "^8.5.0",
+        "eslint-plugin-prettier": "^4.0.0",
+        "eslint-plugin-sonarjs": "^0.13.0",
+        "husky": "^8.0.1",
+        "lint-staged": "^13.0.0",
+        "nodemon": "^2.0.16",
+        "prettier": "^2.6.2"
+    },
+    "lint-staged": {
+        "*.js": "eslint  --cache --color",
+        "*": "prettier --cache -check"
+    }
 }

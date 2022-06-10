@@ -1,14 +1,13 @@
 const express = require("express");
 
-const gameRoutes = require("../routes/Game.Route");
-const userRoutes = require("../routes/User.Route");
+const gameRouter = require("../routers/Game.Router");
+const userRouter = require("../routers/User.Router");
 
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded());
 
-app.use("/games", gameRoutes);
-app.use("/users", userRoutes);
+app.use("/games", gameRouter);
+app.use("/users", userRouter);
 
 module.exports = app;

@@ -9,6 +9,7 @@
         "no-unused-vars": "warn",
         "no-console": "off",
         "indent": ["error", 4],
-        "eol-last": "off"
+        "eol-last": "warn",
+        "semi": "error"
     }
 }

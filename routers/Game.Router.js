@@ -3,7 +3,10 @@ const GameController = require("../controllers/Game.Controller");
 
 const router = express.Router();
 
-router.route("/").get(GameController.getAllGames).post(GameController.createGame);
+router
+    .route("/")
+    .get(GameController.getAllGames)
+    .post(GameController.createGame);
 
 router
     .route("/:id")
@@ -11,6 +14,12 @@ router
     .put(GameController.updateGame)
     .delete(GameController.deleteGame);
 
-router.route("/add-rand").post(GameController.createGameFromGB);
+router
+    .route("/:id/articles")
+    .get(GameController.getAllGameArticlesByGameId);
+    
+router
+    .route("/add-rand")
+    .post(GameController.createGameFromGB);
 
 module.exports = router;

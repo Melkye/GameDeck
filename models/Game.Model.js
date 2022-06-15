@@ -11,9 +11,9 @@ const gameSchema = new Schema({
         type: String,
         required: true,
     },
-    acticles: [{ type: Schema.Types.ObjectId, ref: "Article" }],
+    articles: [{ type: Schema.Types.ObjectId, ref: "Article" }],
     users: [{ type: Schema.Types.ObjectId, ref: "User" }],
 });
 
-const GameModel = mongoose.model("Game", gameSchema);
+const GameModel = mongoose.model("Game", gameSchema, "Game");
 module.exports = GameModel;

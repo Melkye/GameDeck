@@ -22,4 +22,8 @@ router
     .route("/:id/articles")
     .get(UserController.getAllUserArticlesByUserId);
 
+router
+    .route("/:id/subscribe/:gameId")
+    .post(UserController.subscribeToGame);
+
 module.exports = router;

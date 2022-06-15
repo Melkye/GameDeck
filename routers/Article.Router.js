@@ -14,4 +14,8 @@ router
     .put(ArticleController.updateArticle)
     .delete(ArticleController.deleteArticle);
 
+router
+    .route("/:id/games")
+    .get(ArticleController.getAllArticleGamesByArticleId);
+
 module.exports = router;

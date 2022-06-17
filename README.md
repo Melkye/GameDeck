@@ -10,3 +10,7 @@ This project is made for node.js basics course
 -   JavaScript - I have some experience with it, while TypeScript is completely new
 -   Express - seems to have many resources to study and to be relatively easy to learn
 -   MongoDB + Mongoose - I have some experience with it
+
+## Database
+
+![ER Diagram](./database/GameDeckERD.png "ER Diagram")

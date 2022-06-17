@@ -10,6 +10,9 @@
         "no-console": "off",
         "indent": ["error", 4],
         "eol-last": "warn",
-        "semi": "error"
+        "semi": "error",
+        "no-restricted-syntax": "off",
+        "no-await-in-loop": "off",
+        "sonarjs/cognitive-complexity": ["error", 50]
     }
 }

@@ -7,7 +7,7 @@ const validationSchemas = require("../validationSchemas");
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.find({}).select(["_id", "name", "email"]); // underscore?
+        const users = await User.find({}).select(["_id", "name", "email"]);
         res.send(users);
     } catch (error) {
         res.send(error.message);
@@ -97,7 +97,7 @@ exports.getAllUserArticlesByUserId = async (req, res) => {
                     }
                 });
             });
-            res.send(user.games);
+            res.send(articles);
         }
     } catch (error) {
         res.send(error.message);
@@ -144,7 +144,7 @@ exports.updateUser = async (req, res) => {
                     req.params.id,
                     req.body,
                     { new: true },
-                );
+                ).select(["_id", "name", "email"]);
                 res.send(updatedUser);
             }
         }
@@ -174,10 +174,13 @@ exports.deleteUser = async (req, res) => {
             for (const userReviewId of user.reviews) {
                 const reviewWithoutUser = await Review.findByIdAndUpdate(
                     userReviewId,
-                    { user: undefined },
+                    { user: "000000000000000000000000" },
                     { new: true },
                 );
-                if (!reviewWithoutUser.game) {
+                if (
+                    reviewWithoutUser.game.toString() ===
+                    "000000000000000000000000"
+                ) {
                     await Review.deleteOne({ _id: userReviewId });
                 }
             }
@@ -218,7 +221,7 @@ exports.subscribeToGame = async (req, res) => {
                 { users: gameNewUsersIds },
             );
 
-            this.getAllUserGamesByUserId(req.params.id);
+            this.getAllUserGamesByUserId(req, res);
         }
     } catch (error) {
         res.send(error.message);
@@ -257,7 +260,7 @@ exports.unsubscribeFromGame = async (req, res) => {
                 { users: gameNewUsersIds },
             );
 
-            this.getAllUserGamesByUserId(req.params.id);
+            this.getAllUserGamesByUserId(req, res);
         }
     } catch (error) {
         res.send(error.message);
@@ -267,19 +270,21 @@ exports.unsubscribeFromGame = async (req, res) => {
 
 exports.createReview = async (req, res) => {
     try {
-        const userId = req.params.id;
-        const gameId = req.body.game;
-        const review = {
-            text: req.body.text,
-            isGameRecommended: req.body.isGameRecommended,
-            user: userId,
-            game: gameId,
-        };
-        const validationResult =
-            validationSchemas.reviewSchemaJoi.validate(review);
+        const validationResult = validationSchemas.reviewSchemaJoi.validate(
+            req.body,
+        );
         if (validationResult.error) {
             res.status(400).send(validationResult.error.details[0].message);
+            console.error(validationResult.error);
         } else {
+            const userId = req.params.id;
+            const gameId = req.body.game;
+            const review = {
+                text: req.body.text,
+                isGameRecommended: req.body.isGameRecommended,
+                user: userId,
+                game: gameId.toString(),
+            };
             const user = await User.findById(userId);
             const game = await Game.findById(gameId);
             if (!user) {
@@ -292,14 +297,14 @@ exports.createReview = async (req, res) => {
                 const userNewReviewsIds = user.reviews;
                 userNewReviewsIds.push(newReview.id);
                 await User.updateOne(
-                    { _id: req.params.id },
+                    { _id: userId },
                     { reviews: userNewReviewsIds },
                 );
 
                 const gameNewReviewsIds = game.reviews;
                 gameNewReviewsIds.push(newReview.id);
-                await game.updateOne(
-                    { _id: req.params.id },
+                await Game.updateOne(
+                    { _id: gameId },
                     { reviews: gameNewReviewsIds },
                 );
 
@@ -318,7 +323,6 @@ exports.updateReview = async (req, res) => {
         if (!review) {
             res.status(404).send(errorConstants.ERR_REVIEW_NOT_FOUND);
         } else if (req.body.game) {
-            /// //////////////////////////////////////////////////////////////
             res.status(405).send(
                 errorConstants.ERR_REVIEW_GAME_CHANGE_NOT_ALLOWED,
             );
@@ -326,18 +330,21 @@ exports.updateReview = async (req, res) => {
             const updatedReviewData = {
                 text: req.body.text,
                 isGameRecommended: req.body.isGameRecommended,
-                game: review.game,
+                game: review.game.toString(),
             };
             const validationResult =
-                validationSchemas.userSchemaJoi.validate(updatedReviewData);
+                validationSchemas.reviewSchemaJoi.validate(updatedReviewData);
             if (validationResult.error) {
                 res.status(400).send(validationResult.error.details[0].message);
+                console.error(validationResult.error);
             } else {
                 const updatedReview = await Review.findByIdAndUpdate(
                     req.params.reviewId,
                     updatedReviewData,
                     { new: true },
-                );
+                )
+                    .select(["_id", "text", "isGameRecommended"])
+                    .populate("game", ["_id", "title", "description"]);
                 res.send(updatedReview);
             }
         }
@@ -363,7 +370,7 @@ exports.deleteReview = async (req, res) => {
             const userReviewIndex = userNewReviewsIds.indexOf(reviewId);
             userNewReviewsIds.splice(userReviewIndex, 1);
             await User.updateOne(
-                { _id: req.params.id },
+                { _id: user.id },
                 { reviews: userNewReviewsIds },
             );
 
@@ -372,7 +379,7 @@ exports.deleteReview = async (req, res) => {
             const gameReviewIndex = gameNewReviewsIds.indexOf(reviewId);
             gameNewReviewsIds.splice(gameReviewIndex, 1);
             await Game.updateOne(
-                { _id: req.params.id },
+                { _id: game.id },
                 { reviews: gameNewReviewsIds },
             );
 

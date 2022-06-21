@@ -115,9 +115,6 @@ exports.createGameFromGB = (req, res) => {
                 const newGame = {
                     title: randomGame.name,
                     description: randomGame.deck,
-                    users: [],
-                    articles: [],
-                    reviews: [],
                 };
                 this.createGame({ body: newGame }, res);
             });
@@ -172,20 +169,27 @@ exports.deleteGame = async (req, res) => {
             for (const gameArticleId of game.articles) {
                 const article = await Article.findById(gameArticleId);
                 const articleNewGamesIds = article.games;
-                const gameIndex = articleNewGamesIds.indexOf(game.id);
-                articleNewGamesIds.splice(gameIndex, 1);
-                await Article.updateOne(
-                    { _id: gameArticleId },
-                    { games: articleNewGamesIds },
-                );
+                if (articleNewGamesIds.length === 1) {
+                    await Article.deleteOne({ _id: gameArticleId });
+                } else {
+                    const gameIndex = articleNewGamesIds.indexOf(game.id);
+                    articleNewGamesIds.splice(gameIndex, 1);
+                    await Article.updateOne(
+                        { _id: gameArticleId },
+                        { games: articleNewGamesIds },
+                    );
+                }
             }
             for (const gameReviewId of game.reviews) {
                 const reviewWithoutGame = await Review.findByIdAndUpdate(
                     gameReviewId,
-                    { game: undefined },
+                    { game: "000000000000000000000000" },
                     { new: true },
                 );
-                if (!reviewWithoutGame.user) {
+                if (
+                    reviewWithoutGame.user.toString() ===
+                    "000000000000000000000000"
+                ) {
                     await Review.deleteOne({ _id: gameReviewId });
                 }
             }

@@ -17,7 +17,11 @@ router
 router
     .route("/:id/articles")
     .get(GameController.getAllGameArticlesByGameId);
-    
+
+router
+    .route("/:id/reviews")
+    .get(GameController.getAllGameReviewsByGameId);
+
 router
     .route("/add-rand")
     .post(GameController.createGameFromGB);

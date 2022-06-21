@@ -17,13 +17,27 @@ router
 router
     .route("/:id/games")
     .get(UserController.getAllUserGamesByUserId);
-    
+
 router
     .route("/:id/articles")
     .get(UserController.getAllUserArticlesByUserId);
 
 router
+    .route("/:id/reviews")
+    .get(UserController.getAllUserReviewsByUserId)
+    .post(UserController.createReview);
+
+router
+    .route("/:id/reviews/:reviewId")
+    .put(UserController.updateReview)
+    .delete(UserController.deleteReview);
+
+router
     .route("/:id/subscribe/:gameId")
     .post(UserController.subscribeToGame);
+
+router
+    .route("/:id/unsubscribe/:gameId")
+    .post(UserController.unsubscribeFromGame);
 
 module.exports = router;

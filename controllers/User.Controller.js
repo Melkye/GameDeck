@@ -1,25 +1,13 @@
-const Joi = require("joi");
+const User = require("../models/User.Model");
+const Game = require("../models/Game.Model");
+const Review = require("../models/Review.Model");
 
-const UserModel = require("../models/User.Model");
-const GameModel = require("../models/Game.Model");
-
-const ERR_USER_NOT_FOUND = "A user with specified id is not found";
-const ERR_GAME_NOT_FOUND = "A game with specified id is not found";
-const ERR_USER_SUBSCRIBED = "User already subscribed!";
-
-const userSchemaJoi = Joi.object({
-    name: Joi.string().min(3).required(),
-    email: Joi.string().min(3).required(),
-    games: Joi.array().required()
-}); 
+const errorConstants = require("../errorConstants");
+const validationSchemas = require("../validationSchemas");
 
 exports.getAllUsers = async (req, res) => {
     try {
-        const usersFull = await UserModel.find({});
-        const users = [];
-        usersFull.forEach((user) => {
-            users.push({ _id: user.id, name: user.name, email: user.email });
-        });
+        const users = await User.find({}).select(["_id", "name", "email"]); // underscore?
         res.send(users);
     } catch (error) {
         res.send(error.message);
@@ -29,15 +17,14 @@ exports.getAllUsers = async (req, res) => {
 
 exports.getUserById = async (req, res) => {
     try {
-        const userFull = await UserModel.findById(req.params.id);
-        if (!userFull) {
-            res.status(404).send(ERR_USER_NOT_FOUND);
+        const user = await User.findById(req.params.id).select([
+            "_id",
+            "name",
+            "email",
+        ]);
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
         } else {
-            const user = {
-                _id: userFull.id,
-                name: userFull.name,
-                email: userFull.email,
-            };
             res.send(user);
         }
     } catch (error) {
@@ -48,20 +35,36 @@ exports.getUserById = async (req, res) => {
 
 exports.getAllUserGamesByUserId = async (req, res) => {
     try {
-        const user = await UserModel.findById(req.params.id).populate("games", [
+        const user = await User.findById(req.params.id).populate("games", [
+            "_id",
             "title",
-            "desc",
+            "description",
         ]);
-        if (!user)
-        {
-            res.status(404).send(ERR_USER_NOT_FOUND);
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else {
+            res.send(user.games);
         }
-        else {
-            const games = [];
-            user.games.forEach((game) => {
-                games.push({ _id: game.id, title: game.title, desc: game.desc });
-            });
-            res.send(games);
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.getAllUserReviewsByUserId = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).populate({
+            path: "reviews",
+            select: ["_id", "text", "isGameRecommended"],
+            populate: {
+                path: "game",
+                select: ["_id", "title", "description"],
+            },
+        });
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else {
+            res.send(user.reviews);
         }
     } catch (error) {
         res.send(error.message);
@@ -71,29 +74,30 @@ exports.getAllUserGamesByUserId = async (req, res) => {
 
 exports.getAllUserArticlesByUserId = async (req, res) => {
     try {
-        const user = await UserModel.findById(req.params.id).populate({
+        const user = await User.findById(req.params.id).populate({
             path: "games",
-            populate: { path: "articles" },
+            select: ["_id", "title", "description"],
+            populate: {
+                path: "articles",
+                select: ["_id", "title", "text"],
+            },
         });
-        if (!user)
-        {
-            res.status(404).send(ERR_USER_NOT_FOUND);
-        }
-        else {
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else {
             const articles = [];
             user.games.forEach((game) => {
                 game.articles.forEach((article) => {
-                    const newArticle = {
-                        id: article.id,
-                        title: article.title,
-                        text: article.text,
-                    };
-                    if (!articles.find((a) => a.id === newArticle.id)) {
-                        articles.push(newArticle);
+                    if (!articles.find((a) => a.id === article.id)) {
+                        articles.push({
+                            id: article.id,
+                            title: article.title,
+                            text: article.text,
+                        });
                     }
                 });
             });
-            res.send(articles);
+            res.send(user.games);
         }
     } catch (error) {
         res.send(error.message);
@@ -103,55 +107,20 @@ exports.getAllUserArticlesByUserId = async (req, res) => {
 
 exports.createUser = async (req, res) => {
     try {
-        const validationResult = userSchemaJoi.validate(req.body);
+        const validationResult = validationSchemas.userSchemaJoi.validate(
+            req.body,
+        );
         if (validationResult.error) {
-            res.status(400).send(validationResult.error);
-        }
-        else {
-            await UserModel.create(req.body);
-            this.getAllUsers(req, res);
-        }
-    } catch (error) {
-        res.send(error.message);
-        console.error(error);
-    }
-};
-
-exports.subscribeToGame = async (req, res) => {
-    try {
-        const user = await UserModel.findById(req.params.id);
-        const game = await GameModel.findById(req.params.gameId);
-        if (!user) {
-            res.status(404).send(ERR_USER_NOT_FOUND);
-        } else if (!game) {
-            res.status(404).send(ERR_GAME_NOT_FOUND);
-        } else if (
-            !user.games.find((g) => g.toString() === req.params.gameId)
-        ) {
-            const userNewGamesIds = user.games;
-            userNewGamesIds.push(req.params.gameId);
-            await UserModel.findByIdAndUpdate(
-                req.params.id,
-                { games: userNewGamesIds },
-                { new: true },
-            );
-
-            const gameNewUsersIds = game.users;
-            gameNewUsersIds.push(req.params.id);
-            await GameModel.findByIdAndUpdate(
-                req.params.gameId,
-                { users: gameNewUsersIds },
-                { new: true },
-            );
-
-            const userToSend = {
-                _id: user.id,
-                name: user.name,
-                email: user.email,
-            };
-            res.send(userToSend);
+            res.status(400).send(validationResult.error.details[0].message);
         } else {
-            res.send(ERR_USER_SUBSCRIBED);
+            const newUser = {
+                name: req.body.name,
+                email: req.body.email,
+                games: [],
+                reviews: [],
+            };
+            await User.create(newUser);
+            this.getAllUsers(req, res);
         }
     } catch (error) {
         res.send(error.message);
@@ -161,52 +130,22 @@ exports.subscribeToGame = async (req, res) => {
 
 exports.updateUser = async (req, res) => {
     try {
-        const validationResult = userSchemaJoi.validate(req.body);
+        const validationResult = validationSchemas.userSchemaJoi.validate(
+            req.body,
+        );
         if (validationResult.error) {
-            res.status(400).send(validationResult.error);
-        }
-        else {
-            const userId = req.params.id;
-            const user = await UserModel.findById(userId);
-            let gamesExist = true;
-            req.body.games.every(async gameId => {
-                if (!(await GameModel.findById(gameId)))
-                {
-                    gamesExist = false;
-                    return false;
-                }
-                return true;
-            });
+            res.status(400).send(validationResult.error.details[0].message);
+        } else {
+            const user = await User.findById(req.params.id);
             if (!user) {
-                res.status(404).send(ERR_USER_NOT_FOUND);
-            } else if (!gamesExist) {
-                res.status(404).send(ERR_GAME_NOT_FOUND);
+                res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
             } else {
-                for (const userGameId of user.games) {
-                    const game = await GameModel.findById(userGameId);
-                    const gameNewUserIds = game.users;
-                    const userIndex = gameNewUserIds.indexOf(userId);
-                    gameNewUserIds.splice(userIndex, 1);
-                    await GameModel.findByIdAndUpdate(
-                        userGameId,
-                        { users: gameNewUserIds },
-                        { new: true },
-                    );
-                }
-                for (const userNewGameId of req.body.games) {
-                    const game = await GameModel.findById(userNewGameId);
-                    const gameNewUserIds = game.users;
-                    if (gameNewUserIds.indexOf(userId) === -1) {
-                        gameNewUserIds.push(userId);
-                        await GameModel.findByIdAndUpdate(
-                            userNewGameId,
-                            { users: gameNewUserIds },
-                            { new: true },
-                        );
-                    }
-                }
-                await UserModel.findByIdAndUpdate(userId, req.body, { new: true });
-                this.getUserById(req, res);
+                const updatedUser = await User.findByIdAndUpdate(
+                    req.params.id,
+                    req.body,
+                    { new: true },
+                );
+                res.send(updatedUser);
             }
         }
     } catch (error) {
@@ -217,28 +156,229 @@ exports.updateUser = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
     try {
-        const user = await UserModel.findById(req.params.id);
+        const user = await User.findById(req.params.id);
         if (!user) {
-            res.status(404).send(ERR_USER_NOT_FOUND);
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
         } else {
             for (const userGameId of user.games) {
-                const game = await GameModel.findById(userGameId);
-                const gameNewUserIds = game.users;
-                const userIndex = gameNewUserIds.indexOf(user.id);
-                gameNewUserIds.splice(userIndex, 1);
-                await GameModel.findByIdAndUpdate(
-                    userGameId,
-                    { users: gameNewUserIds },
-                    { new: true },
+                const game = await Game.findById(userGameId);
+                const gameNewUsersIds = game.users;
+                const userIndex = gameNewUsersIds.indexOf(user.id);
+                gameNewUsersIds.splice(userIndex, 1);
+                await Game.updateOne(
+                    { _id: userGameId },
+                    { users: gameNewUsersIds },
                 );
             }
-            await UserModel.findByIdAndDelete(user.id, { new: true });
-            const usersFull = await UserModel.find({});
-            const users = [];
-            usersFull.forEach((u) => {
-                users.push({ _id: u.id, name: u.name, email: u.email });
-            });
-            res.send(users);
+
+            for (const userReviewId of user.reviews) {
+                const reviewWithoutUser = await Review.findByIdAndUpdate(
+                    userReviewId,
+                    { user: undefined },
+                    { new: true },
+                );
+                if (!reviewWithoutUser.game) {
+                    await Review.deleteOne({ _id: userReviewId });
+                }
+            }
+
+            await User.deleteOne({ _id: user.id });
+            this.getAllUsers(req, res);
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.subscribeToGame = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        const game = await Game.findById(req.params.gameId);
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else if (!game) {
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
+        } else if (
+            user.games.find((gameId) => gameId.toString() === req.params.gameId)
+        ) {
+            res.send(errorConstants.ERR_USER_SUBSCRIBED);
+        } else {
+            const userNewGamesIds = user.games;
+            userNewGamesIds.push(req.params.gameId);
+            await User.updateOne(
+                { _id: req.params.id },
+                { games: userNewGamesIds },
+            );
+
+            const gameNewUsersIds = game.users;
+            gameNewUsersIds.push(req.params.id);
+            await Game.updateOne(
+                { _id: req.params.gameId },
+                { users: gameNewUsersIds },
+            );
+
+            this.getAllUserGamesByUserId(req.params.id);
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.unsubscribeFromGame = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        const game = await Game.findById(req.params.gameId);
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else if (!game) {
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
+        } else if (
+            !user.games.find(
+                (gameId) => gameId.toString() === req.params.gameId,
+            )
+        ) {
+            res.send(errorConstants.ERR_USER_NOT_SUBSCRIBED);
+        } else {
+            const userNewGamesIds = user.games;
+            const gameIndex = userNewGamesIds.indexOf(req.params.gameId);
+            userNewGamesIds.splice(gameIndex, 1);
+            await User.updateOne(
+                { _id: req.params.id },
+                { games: userNewGamesIds },
+            );
+
+            const gameNewUsersIds = game.users;
+            const userIndex = gameNewUsersIds.indexOf(req.params.id);
+            gameNewUsersIds.splice(userIndex, 1);
+            await Game.updateOne(
+                { _id: req.params.gameId },
+                { users: gameNewUsersIds },
+            );
+
+            this.getAllUserGamesByUserId(req.params.id);
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.createReview = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const gameId = req.body.game;
+        const review = {
+            text: req.body.text,
+            isGameRecommended: req.body.isGameRecommended,
+            user: userId,
+            game: gameId,
+        };
+        const validationResult =
+            validationSchemas.reviewSchemaJoi.validate(review);
+        if (validationResult.error) {
+            res.status(400).send(validationResult.error.details[0].message);
+        } else {
+            const user = await User.findById(userId);
+            const game = await Game.findById(gameId);
+            if (!user) {
+                res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+            } else if (!game) {
+                res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
+            } else {
+                const newReview = await Review.create(review);
+
+                const userNewReviewsIds = user.reviews;
+                userNewReviewsIds.push(newReview.id);
+                await User.updateOne(
+                    { _id: req.params.id },
+                    { reviews: userNewReviewsIds },
+                );
+
+                const gameNewReviewsIds = game.reviews;
+                gameNewReviewsIds.push(newReview.id);
+                await game.updateOne(
+                    { _id: req.params.id },
+                    { reviews: gameNewReviewsIds },
+                );
+
+                this.getAllUserReviewsByUserId(req, res);
+            }
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.updateReview = async (req, res) => {
+    try {
+        const review = await Review.findById(req.params.reviewId);
+        if (!review) {
+            res.status(404).send(errorConstants.ERR_REVIEW_NOT_FOUND);
+        } else if (req.body.game) {
+            /// //////////////////////////////////////////////////////////////
+            res.status(405).send(
+                errorConstants.ERR_REVIEW_GAME_CHANGE_NOT_ALLOWED,
+            );
+        } else {
+            const updatedReviewData = {
+                text: req.body.text,
+                isGameRecommended: req.body.isGameRecommended,
+                game: review.game,
+            };
+            const validationResult =
+                validationSchemas.userSchemaJoi.validate(updatedReviewData);
+            if (validationResult.error) {
+                res.status(400).send(validationResult.error.details[0].message);
+            } else {
+                const updatedReview = await Review.findByIdAndUpdate(
+                    req.params.reviewId,
+                    updatedReviewData,
+                    { new: true },
+                );
+                res.send(updatedReview);
+            }
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+
+exports.deleteReview = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { reviewId } = req.params;
+
+        const user = await User.findById(userId);
+        const review = await Review.findById(reviewId);
+        if (!user) {
+            res.status(404).send(errorConstants.ERR_USER_NOT_FOUND);
+        } else if (!review) {
+            res.status(404).send(errorConstants.ERR_REVIEW_NOT_FOUND);
+        } else {
+            const userNewReviewsIds = user.reviews;
+            const userReviewIndex = userNewReviewsIds.indexOf(reviewId);
+            userNewReviewsIds.splice(userReviewIndex, 1);
+            await User.updateOne(
+                { _id: req.params.id },
+                { reviews: userNewReviewsIds },
+            );
+
+            const game = await Game.findById(review.game);
+            const gameNewReviewsIds = game.reviews;
+            const gameReviewIndex = gameNewReviewsIds.indexOf(reviewId);
+            gameNewReviewsIds.splice(gameReviewIndex, 1);
+            await Game.updateOne(
+                { _id: req.params.id },
+                { reviews: gameNewReviewsIds },
+            );
+
+            await Review.deleteOne({ _id: reviewId });
+
+            this.getAllUserReviewsByUserId(req, res);
         }
     } catch (error) {
         res.send(error.message);

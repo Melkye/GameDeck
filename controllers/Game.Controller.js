@@ -1,30 +1,18 @@
-const Joi = require("joi");
+const User = require("../models/User.Model");
+const Game = require("../models/Game.Model");
+const Article = require("../models/Article.Model");
+const Review = require("../models/Review.Model");
 
-const UserModel = require("../models/User.Model");
-const GameModel = require("../models/Game.Model");
-const ArticleModel = require("../models/Article.Model");
-
-const ERR_GAME_NOT_FOUND = "A game with specified id is not found";
-const ERR_USER_NOT_FOUND = "A user with specified id is not found";
-const ERR_ARTICLE_NOT_FOUND = "An article with specified id is not found";
-
-const gameSchemaJoi = Joi.object({
-    title: Joi.string().min(3).required(),
-    desc: Joi.string().min(3).required(),
-    users: Joi.array().required(),
-    articles: Joi.array().required()
-}); 
+const errorConstants = require("../errorConstants");
+const validationSchemas = require("../validationSchemas");
 
 exports.getAllGames = async (req, res) => {
     try {
-        const gamesFull = await GameModel.find({}).populate("articles", [
+        const games = await Game.find({}).select([
+            "_id",
             "title",
-            "text",
+            "description",
         ]);
-        const games = [];
-        gamesFull.forEach((game) => {
-            games.push({ _id: game.id, title: game.title, desc: game.desc });
-        });
         res.send(games);
     } catch (error) {
         res.send(error.message);
@@ -34,15 +22,14 @@ exports.getAllGames = async (req, res) => {
 
 exports.getGameById = async (req, res) => {
     try {
-        const gameFull = await GameModel.findById(req.params.id);
-        if (!gameFull) {
-            res.status(404).send(ERR_GAME_NOT_FOUND);
+        const game = await Game.findById(req.params.id).select([
+            "_id",
+            "title",
+            "description",
+        ]);
+        if (!game) {
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
         } else {
-            const game = {
-                _id: gameFull.id,
-                title: gameFull.title,
-                desc: gameFull.desc,
-            };
             res.send(game);
         }
     } catch (error) {
@@ -53,19 +40,36 @@ exports.getGameById = async (req, res) => {
 
 exports.getAllGameArticlesByGameId = async (req, res) => {
     try {
-        const game = await GameModel.findById(req.params.id).populate(
-            "articles",
-            ["title", "text"],
-        );
-        const articles = [];
-        game.articles.forEach((article) => {
-            articles.push({
-                _id: article.id,
-                title: article.title,
-                text: article.text,
-            });
+        const game = await Game.findById(req.params.id).populate("articles", [
+            "_id",
+            "title",
+            "text",
+        ]);
+        if (!game) {
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
+        } else {
+            res.send(game.articles);
+        }
+    } catch (error) {
+        res.send(error.message);
+        console.error(error);
+    }
+};
+exports.getAllGameReviewsByGameId = async (req, res) => {
+    try {
+        const game = await Game.findById(req.params.id).populate({
+            path: "reviews",
+            select: ["_id", "text", "isGameRecommended"],
+            populate: {
+                path: "user",
+                select: ["_id", "name"],
+            },
         });
-        res.send(articles);
+        if (!game) {
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
+        } else {
+            res.send(game.reviews);
+        }
     } catch (error) {
         res.send(error.message);
         console.error(error);
@@ -74,12 +78,20 @@ exports.getAllGameArticlesByGameId = async (req, res) => {
 
 exports.createGame = async (req, res) => {
     try {
-        const validationResult = gameSchemaJoi.validate(req.body);
+        const validationResult = validationSchemas.gameSchemaJoi.validate(
+            req.body,
+        );
         if (validationResult.error) {
-            res.status(400).send(validationResult.error.message);
-        }
-        else {
-            await GameModel.create(req.body);
+            res.status(400).send(validationResult.error.details[0].message);
+        } else {
+            const newGame = {
+                title: req.body.title,
+                description: req.body.description,
+                users: [],
+                articles: [],
+                reviews: [],
+            };
+            await Game.create(newGame);
             this.getAllGames(req, res);
         }
     } catch (error) {
@@ -102,11 +114,12 @@ exports.createGameFromGB = (req, res) => {
                 const randomGame = data.results[randomId];
                 const newGame = {
                     title: randomGame.name,
-                    desc: randomGame.deck,
-                    games: [],
+                    description: randomGame.deck,
+                    users: [],
+                    articles: [],
+                    reviews: [],
                 };
-                const newReq = { body: newGame };
-                this.createGame(newReq, res);
+                this.createGame({ body: newGame }, res);
             });
     } catch (error) {
         res.send(error.message);
@@ -116,90 +129,22 @@ exports.createGameFromGB = (req, res) => {
 
 exports.updateGame = async (req, res) => {
     try {
-        const validationResult = gameSchemaJoi.validate(req.body);
+        const validationResult = validationSchemas.gameSchemaJoi.validate(
+            req.body,
+        );
         if (validationResult.error) {
-            res.status(400).send(validationResult.error.message);
-        }
-        else {
-            const gameId = req.params.id;
-            const game = await GameModel.findById(gameId);
-            let usersExist = true;
-            const updateUsers = req.body.users;
-            for (const userId of updateUsers) {
-                const user = await UserModel.findById(userId);
-                if (!user) {
-                    usersExist = false;
-                }
-            }
-            let articlesExist = true;
-            const updateArticles = req.body.articles;
-            for (const articleId of updateArticles) {
-                const article = await ArticleModel.findById(articleId);
-                if (!article) {
-                    articlesExist = false;
-                }
-            }
+            res.status(400).send(validationResult.error.details[0].message);
+        } else {
+            const game = await Game.findById(req.params.id);
             if (!game) {
-                res.status(404).send(ERR_GAME_NOT_FOUND);
-            } else if (!usersExist) {
-                res.status(404).send(ERR_USER_NOT_FOUND);
-            } else if (!articlesExist) {
-                res.status(404).send(ERR_ARTICLE_NOT_FOUND);
+                res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
             } else {
-                for (const gameUserId of game.users) {
-                    const user = await UserModel.findById(gameUserId);
-                    const userNewGameIds = user.games;
-                    const gameIndex = userNewGameIds.indexOf(gameId);
-                    userNewGameIds.splice(gameIndex, 1);
-                    await UserModel.findByIdAndUpdate(
-                        gameUserId,
-                        { games: userNewGameIds },
-                        { new: true },
-                    );
-                }
-                for (const gameNewUserId of updateUsers) {
-                    const user = await UserModel.findById(gameNewUserId);
-                    const userNewGameIds = user.games;
-                    if (userNewGameIds.indexOf(gameId) === -1)
-                    {
-                        userNewGameIds.push(gameId);
-                        await UserModel.findByIdAndUpdate(
-                            gameNewUserId,
-                            { games: userNewGameIds },
-                            { new: true },
-                        );
-                    }
-                }
-
-                for (const gameArticleId of game.articles) {
-                    const article = await ArticleModel.findById(gameArticleId);
-                    const articleNewGameIds = article.games;
-                    const gameIndex = articleNewGameIds.indexOf(gameId);
-                    articleNewGameIds.splice(gameIndex, 1);
-                    if (articleNewGameIds.length === 0) {
-                        await ArticleModel.findByIdAndDelete(gameArticleId);
-                    }
-                    await UserModel.findByIdAndUpdate(
-                        gameArticleId,
-                        { games: articleNewGameIds },
-                        { new: true },
-                    );
-                }
-                for (const gameNewArticleId of updateArticles) {
-                    const article = await ArticleModel.findById(gameNewArticleId);
-                    const articleNewGameIds = article.games;
-                    if (articleNewGameIds.indexOf(gameId) === -1)
-                    {
-                        articleNewGameIds.push(gameId);
-                        await UserModel.findByIdAndUpdate(
-                            gameNewArticleId,
-                            { games: articleNewGameIds },
-                            { new: true },
-                        );
-                    }
-                }
-                await GameModel.findByIdAndUpdate(gameId, req.body, { new: true });
-                this.getAllGames(req, res);
+                const updatedGame = await Game.findByIdAndUpdate(
+                    req.params.id,
+                    req.body,
+                    { new: true },
+                );
+                res.send(updatedGame);
             }
         }
     } catch (error) {
@@ -210,38 +155,41 @@ exports.updateGame = async (req, res) => {
 
 exports.deleteGame = async (req, res) => {
     try {
-        const game = await GameModel.findById(req.params.id);
+        const game = await Game.findById(req.params.id);
         if (!game) {
-            res.status(404).send(ERR_GAME_NOT_FOUND);
+            res.status(404).send(errorConstants.ERR_GAME_NOT_FOUND);
         } else {
-            game.users.forEach(async (gameUserId) => {
-                const user = await UserModel.findById(gameUserId);
-                const userNewGameIds = user.games;
-                const gameIndex = userNewGameIds.indexOf(game.id);
-                userNewGameIds.splice(gameIndex, 1);
-                await UserModel.findByIdAndUpdate(
-                    gameUserId,
-                    { games: userNewGameIds },
+            for (const gameUserId of game.users) {
+                const user = await User.findById(gameUserId);
+                const userNewGamesIds = user.games;
+                const gameIndex = userNewGamesIds.indexOf(game.id);
+                userNewGamesIds.splice(gameIndex, 1);
+                await User.updateOne(
+                    { _id: gameUserId },
+                    { games: userNewGamesIds },
+                );
+            }
+            for (const gameArticleId of game.articles) {
+                const article = await Article.findById(gameArticleId);
+                const articleNewGamesIds = article.games;
+                const gameIndex = articleNewGamesIds.indexOf(game.id);
+                articleNewGamesIds.splice(gameIndex, 1);
+                await Article.updateOne(
+                    { _id: gameArticleId },
+                    { games: articleNewGamesIds },
+                );
+            }
+            for (const gameReviewId of game.reviews) {
+                const reviewWithoutGame = await Review.findByIdAndUpdate(
+                    gameReviewId,
+                    { game: undefined },
                     { new: true },
                 );
-            });
-
-            game.articles.forEach(async (gameArticleId) => {
-                const article = await ArticleModel.findById(gameArticleId);
-                const articleNewGameIds = article.games;
-                const gameIndex = articleNewGameIds.indexOf(game.id);
-                articleNewGameIds.splice(gameIndex, 1);
-                if (articleNewGameIds.length === 0) {
-                    await ArticleModel.findByIdAndDelete(gameArticleId);
+                if (!reviewWithoutGame.user) {
+                    await Review.deleteOne({ _id: gameReviewId });
                 }
-                await UserModel.findByIdAndUpdate(
-                    gameArticleId,
-                    { games: articleNewGameIds },
-                    { new: true },
-                );
-            });
-
-            await GameModel.findByIdAndDelete(game.id, { new: true });
+            }
+            await Game.deleteOne({ _id: game.id });
             this.getAllGames(req, res);
         }
     } catch (error) {

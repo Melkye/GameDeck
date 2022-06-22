@@ -9,14 +9,19 @@ const articleRouter = require("../routers/Article.Router");
 
 const app = express();
 
-const url = "mongodb://0.0.0.0:27017/Gamedeck";
+const uri = process.env.MONGODB_URI;
 
 mongoose
-    .connect(url)
+    .connect(uri)
     .then(() => { logger.info("Connected correctly to server");})
     .catch((error) => { logger.error(error); });
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get("/", (req, res) => {
+    res.send("Welcome to GameDeck");
+});
 
 app.use("/games", gameRouter);
 app.use("/users", userRouter);
